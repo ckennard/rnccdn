@@ -190,7 +190,7 @@ decodeFile(struct arguments facts){
                 printf("starting array\n");
                 
                 while(1){
-                    if(count >= CHUNK_LENGTH){
+                    if((count/2) >= CHUNK_LENGTH){
                         //Done reading file
                         break;
                     } else {
@@ -212,7 +212,19 @@ decodeFile(struct arguments facts){
                         //add buffer to input
                         //count is in bytes so need to divide by 2 to get 16bit
                         long offset = (count/2);
-                        memcpy(output[i].output+offset, buffer, sizeof(uint16_t));
+                        //memcpy(output[i].output+offset, buffer, sizeof(uint16_t));
+                        
+                        if(count + (bufsize*2) > file_size_bytes){
+                            int remain = bufsize;
+                            if(output[i].oddBytes == 0){
+                                remain = (file_size_bytes - count);
+                            } else {
+                                remain = (file_size_bytes - count + 1);
+                            }
+                            memcpy(output[i].output+offset, buffer, remain);
+                        } else {
+                            memcpy(output[i].output+offset, buffer, bufsize*2);
+                        }
                         
                         //increment count
                         //fseek offset is in bytes. bufsize is in 16bit so * by 2
@@ -300,11 +312,11 @@ decodeFile(struct arguments facts){
         fwrite(final+((DATA_LENGTH)-output[0].numEmpty - 1), 1, 1, finalFile);
     }
 
-    //cann call testOriginal to check if its the same as read input
+    //can call testOriginal to check if its the same as read input
     
 }
 
-void
+uint16_t *
 testOriginal(struct arguments facts){
     uint16_t *input = NULL;
     long file_size_bytes = 0;
@@ -353,6 +365,11 @@ testOriginal(struct arguments facts){
             input = malloc(sizeof(uint16_t) * (DATA_LENGTH + whitespace));
             uint16_t *buffer = malloc(sizeof(uint16_t) * (bufsize));
             
+            //set off-byte element to 0 so math can work out
+            if(oddBytes == 1){
+                input[DATA_LENGTH-whitespace-1] = 0;
+            }
+
             while(1){
                 if(count >= DATA_LENGTH){
                     //end of file
@@ -391,6 +408,8 @@ testOriginal(struct arguments facts){
     }
     
     fclose(fp);
+
+    return input;
 }
 
 //
