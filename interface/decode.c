@@ -110,7 +110,10 @@ decodeFile(struct arguments facts){
     //long bufsize = 1000000;
     long bufsize = 500000;
     //start of file has 3 16bit numbers and an int for whitespace
-    long count = 6 + sizeof(int) + sizeof(int);
+    //long count = sizeof(uint16_t)*3 + sizeof(int) + sizeof(int);
+    long count = 0;
+    long countOther = sizeof(uint16_t)*3 + sizeof(int) + sizeof(int);
+    
     //int whitespace = 0;
     
     struct chunk output[3];
@@ -190,14 +193,15 @@ decodeFile(struct arguments facts){
                 printf("starting array\n");
                 
                 while(1){
-                    if(count >= CHUNK_LENGTH){
+                    if((count/2) >= CHUNK_LENGTH){
                         //Done reading file
                         break;
                     } else {
                         //Go back to the start of the file.
                         //if (fseek(fp, 0L, SEEK_SET) != 0) { /* Error */ }
                         //Go to offset of file which is stored in count
-                        if (fseek(fp, count, SEEK_SET) != 0) { /* Error */ }
+                        //if (fseek(fp, count, SEEK_SET) != 0) { /* Error */ }
+                        if (fseek(fp, count+countOther, SEEK_SET) != 0) { /* Error */ }
                         
                         //Read the bufsize lenght of file into memory.
                         //size_t newLen = fread(input, sizeof(uint16_t), bufsize, fp);
@@ -212,7 +216,22 @@ decodeFile(struct arguments facts){
                         //add buffer to input
                         //count is in bytes so need to divide by 2 to get 16bit
                         long offset = (count/2);
-                        memcpy(output[i].output+offset, buffer, sizeof(uint16_t));
+                        //memcpy(output[i].output+offset, buffer, sizeof(uint16_t));
+                        
+                        if(count + (bufsize*2) > CHUNK_LENGTH*2){
+                            int remain = bufsize;
+                            remain = (CHUNK_LENGTH*2 - count);
+                            /*
+                            if(input[i].oddBytes == 0){
+                                remain = (file_size_bytes - count);
+                            } else {
+                                remain = (file_size_bytes - count + 1);
+                            }
+                            */
+                            memcpy(output[i].output+offset, buffer, remain);
+                        } else {
+                            memcpy(output[i].output+offset, buffer, bufsize*2);
+                        }
                         
                         //increment count
                         //fseek offset is in bytes. bufsize is in 16bit so * by 2
@@ -285,7 +304,7 @@ decodeFile(struct arguments facts){
     printf("Starting write\n");
     
     FILE *finalFile;
-    finalFile = fopen("final_file.jpg" , "w" ); //change file name later
+    finalFile = fopen("final_file" , "w" ); //change file name later
     
     //write out final array
     //fwrite(final, 2, (DATA_LENGTH)-output[0].numEmpty, finalFile); //working one
@@ -300,97 +319,11 @@ decodeFile(struct arguments facts){
         fwrite(final+((DATA_LENGTH)-output[0].numEmpty - 1), 1, 1, finalFile);
     }
 
-    //cann call testOriginal to check if its the same as read input
-    
-}
+    fclose(finalFile);
 
-void
-testOriginal(struct arguments facts){
-    uint16_t *input = NULL;
-    long file_size_bytes = 0;
-    long DATA_LENGTH = 0; //16bit elements
+    //FILE * chunkCheck = fopen("fchunkCheck" , "w+" );
+    //fwrite(output[0].output, 2, CHUNK_LENGTH, chunkCheck);
     
-    //buffer size set to 1MB
-    //using 16bit units, so half of what would be in byte
-    //long bufsize = 1000000;
-    long bufsize = 500000;
-    long count = 0;
-    int whitespace = 0;
-    int oddBytes = 0;
-    
-    int i;
-
-    FILE *fp;
-    fp = fopen(facts.input_file_name, "r");
-
-    //if(fp == NULL){
-    //  printf("Hello|%s|\n", facts.input_file_name);
-    //}
-    
-    if(fp != NULL){
-        if (fseek(fp, 0, SEEK_END) == 0) {
-            //Get the size of the file. Gets in single bytes
-            file_size_bytes = ftell(fp);
-            if (file_size_bytes == -1) { /* Error */ }
-            
-            if( file_size_bytes % 2 == 0){
-                DATA_LENGTH = file_size_bytes/2;
-            } else {
-                //not divisible by 2
-                //Which makes it a problem when outputting 16bits
-                //temporary solution. store somewhere to remember
-                DATA_LENGTH = (file_size_bytes + 1)/2;
-                oddBytes = 1;
-            }
-
-            if(DATA_LENGTH%3 == 0){
-                whitespace = 0;
-            } else {
-                whitespace = 3 - (DATA_LENGTH%3);
-            }
-            
-            //Allocate our buffer to that size.
-            input = malloc(sizeof(uint16_t) * (DATA_LENGTH + whitespace));
-            uint16_t *buffer = malloc(sizeof(uint16_t) * (bufsize));
-            
-            while(1){
-                if(count >= DATA_LENGTH){
-                    //end of file
-                    //set empty bytes to end
-                    for(i = whitespace ; i > 0 ; i--){
-                        input[DATA_LENGTH-i] = 0;
-                    }
-                    break;
-                } else {
-                    //Go back to the start of the file.
-                    //if (fseek(fp, 0L, SEEK_SET) != 0) { /* Error */ }
-                    //Go to offset of file which is stored in count
-                    if (fseek(fp, count, SEEK_SET) != 0) { /* Error */ }
-                    
-                    //Read the bufsize lenght of file into memory.
-                    //size_t newLen = fread(input, sizeof(uint16_t), bufsize, fp);
-                    size_t newLen = fread(buffer, sizeof(uint16_t), bufsize, fp);
-                    
-                    if (newLen == 0) {
-                        fputs("Error reading file", stderr);
-                    }/* else {
-                        source[newLen++] = '\0'; //Just to be safe.
-                    }*/
-                    
-                    //add buffer to input
-                    //count is in bytes so need to divide by 2 to get 16bit
-                    long offset = (count/2);
-                    memcpy(input+offset, buffer, sizeof(uint16_t));
-                    
-                    //increment count
-                    //fseek offset is in bytes. bufsize is in 16bit so * by 2
-                    count = count + (bufsize*2);
-                }
-            }
-        }
-    }
-    
-    fclose(fp);
 }
 
 //

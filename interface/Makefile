@@ -36,7 +36,7 @@ $(RAND_X) : $(OBJS_3)
 	$(CC) -o $@ $(OBJS_3) $(LIBPATH) $(LIBS)
 
 clean:
-	rm -f *.o *.core $(ENCODE_X) $(LIBRARAY) $(DECODE_X)
+	rm -f *.o *.core $(ENCODE_X) $(LIBRARAY) $(DECODE_X) $(RAND_X)
 
 depend:
 	mkdep $(CFLAGS) $(SRCS)

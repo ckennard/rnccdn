@@ -35,7 +35,7 @@ struct chunk {
 };
 
 //
-// lksd;lk
+//
 //
 uint16_t
 mt_rand16(void)
@@ -53,26 +53,7 @@ struct arguments
 parse_args(int argc,
            char **argv
            )
-{
-    /*
-    printf("hello\n");
-    int c;
-    while ((c = getopt(argc, argv, "fn:")) != -1){
-        switch (c) {
-            case 'f':
-                //
-                printf("f\n");
-                break;
-            case 'n':
-                //
-                printf("n\n");
-                break;
-            default:
-                abort();
-        }
-    }
-     */
-    
+{   
 	//int i;
     //for(i = 0 ; i < argc ; i++){
     //	printf("%s\n", argv[i]);
@@ -116,7 +97,7 @@ encodeFile(struct arguments facts){
     
     //get file input
     FILE *fp;
-    fp = fopen(facts.input_file_name, "r");
+    fp = fopen(facts.input_file_name, "r+");
 
     //if(fp == NULL){
     //	printf("Hello|%s|\n", facts.input_file_name);
@@ -148,8 +129,13 @@ encodeFile(struct arguments facts){
             input = malloc(sizeof(uint16_t) * (DATA_LENGTH + whitespace));
             uint16_t *buffer = malloc(sizeof(uint16_t) * (bufsize));
             
+            //set off-byte element to 0 so math can work out
+            if(oddBytes == 1){
+            	input[DATA_LENGTH - whitespace - 1] = 0;
+            }
+
             while(1){
-                if(count >= DATA_LENGTH){
+                if(count >= file_size_bytes){
                     //end of file
                     //set empty bytes to end
                     for(i = whitespace ; i > 0 ; i--){
@@ -175,8 +161,21 @@ encodeFile(struct arguments facts){
                     //add buffer to input
                     //count is in bytes so need to divide by 2 to get 16bit
                     long offset = (count/2);
-                    memcpy(input+offset, buffer, sizeof(uint16_t));
+                    //memcpy(input+offset, buffer, sizeof(uint16_t));
+
+                    if(count + (bufsize*2) > file_size_bytes){
+                    	int remain = bufsize;
+                    	if(oddBytes == 0){
+                    		remain = (file_size_bytes - count);
+                    	} else {
+							remain = (file_size_bytes - count + 1);
+                    	}
+                    	memcpy(input+offset, buffer, remain);
+                    } else {
+                    	memcpy(input+offset, buffer, bufsize*2);
+                    }
                     
+
                     //increment count
                     //fseek offset is in bytes. bufsize is in 16bit so * by 2
                     count = count + (bufsize*2);
@@ -224,7 +223,7 @@ encodeFile(struct arguments facts){
         char namebuf[100];
         sprintf(namebuf, "%s-%d", facts.input_file_name, j);
         
-        fp = fopen(namebuf , "a" ); //a is for appending, file need not exist
+        fp = fopen(namebuf , "a+" ); //a is for appending, file need not exist
         fwrite(out.coef, 2, 3, fp);
         
         int *p = &whitespace;
@@ -241,20 +240,27 @@ encodeFile(struct arguments facts){
         
         fclose(fp);
 
-        
+        /*
         printf("coef %d %d %d and whitespace %d and odd bytes %d\n",
                        out.coef[0],
                        out.coef[1],
                        out.coef[2],
                        *p,
                        *b);
-
+		*/
         //printf("%d\n", sizeof(int));
                        
         
     }
     
     printf("Done encoding\n");
+
+    fp = fopen("fileCheck" , "w+" );
+    fwrite(input, 2, DATA_LENGTH, fp);
+
+    //for(i = 0 ; i < 10 ; i++){
+    //	printf("%x\n", input[i]);
+    //}
 }
 
 //
