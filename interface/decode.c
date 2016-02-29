@@ -133,6 +133,8 @@ decodeFile(struct arguments facts){
     for(i = 0 ; i < 3 ; i++){
         FILE *fp;
         fp = fopen(facts.chunks[i], "r");
+
+        count = 0;
         
         //printf("chunk %s\n", facts.chunks[i]);
         
@@ -190,7 +192,7 @@ decodeFile(struct arguments facts){
                 output[i].output = malloc(sizeof(uint16_t) * CHUNK_LENGTH);
                 uint16_t *buffer = malloc(sizeof(uint16_t) * (bufsize));
                 
-                printf("starting array\n");
+                //printf("starting array\n");
                 
                 while(1){
                     if((count/2) >= CHUNK_LENGTH){
@@ -321,9 +323,19 @@ decodeFile(struct arguments facts){
 
     fclose(finalFile);
 
-    //FILE * chunkCheck = fopen("fchunkCheck" , "w+" );
-    //fwrite(output[0].output, 2, CHUNK_LENGTH, chunkCheck);
-    
+/*
+    FILE * chunkCheck = fopen("fchunkCheck-0" , "w+" );
+    fwrite(output[0].output, 2, CHUNK_LENGTH, chunkCheck);
+    fclose(chunkCheck);
+
+    chunkCheck = fopen("fchunkCheck-1" , "w+" );
+    fwrite(output[1].output, 2, CHUNK_LENGTH, chunkCheck);
+    fclose(chunkCheck);
+
+    chunkCheck = fopen("fchunkCheck-2" , "w+" );
+    fwrite(output[2].output, 2, CHUNK_LENGTH, chunkCheck);
+    fclose(chunkCheck);
+    */
 }
 
 //

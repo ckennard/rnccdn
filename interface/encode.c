@@ -214,7 +214,8 @@ encodeFile(struct arguments facts){
         
         out.numEmpty = whitespace;
         
-        for(i = 0, t = 0; i < DATA_LENGTH ; t++, i += 3){
+        //for(i = 0, t = 0; i < DATA_LENGTH ; t++, i += 3){
+        for(i = 0, t = 0; i < (DATA_LENGTH + whitespace) ; t++, i += 3){
             out.output[t] = GF16mul(out.coef[0], input[i]) ^ GF16mul(out.coef[1], input[i+1]) ^ GF16mul(out.coef[2], input[i+2]);
         }
         
@@ -223,7 +224,7 @@ encodeFile(struct arguments facts){
         char namebuf[100];
         sprintf(namebuf, "%s-%d", facts.input_file_name, j);
         
-        fp = fopen(namebuf , "a+" ); //a is for appending, file need not exist
+        fp = fopen(namebuf , "w" ); //w for write, may need append later
         fwrite(out.coef, 2, 3, fp);
         
         int *p = &whitespace;
@@ -255,8 +256,8 @@ encodeFile(struct arguments facts){
     
     printf("Done encoding\n");
 
-    fp = fopen("fileCheck" , "w+" );
-    fwrite(input, 2, DATA_LENGTH, fp);
+    //fp = fopen("fileCheck" , "w+" );
+    //fwrite(input, 2, DATA_LENGTH, fp);
 
     //for(i = 0 ; i < 10 ; i++){
     //	printf("%x\n", input[i]);
