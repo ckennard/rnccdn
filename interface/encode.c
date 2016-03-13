@@ -63,7 +63,7 @@ parse_args(int argc,
 
     facts.num_of_chunks = atoi(argv[2]);
     //char buffer[75];
-    char * buffer = malloc(75 * sizeof(char*));
+    char * buffer = malloc(30 * sizeof(char*));
     strcpy(buffer, argv[1]);
     facts.input_file_name = buffer;
 
@@ -76,32 +76,57 @@ parse_args(int argc,
 //
 //
 void
+encodeMath(struct chunk *output, uint16_t *input, long SIZE, struct arguments facts, FILE **clist, int last){
+	int i, t, x;
+
+	for(x = 0 ; x <  facts.num_of_chunks ; x++){
+		for(i = 0, t = 0; i < SIZE + last ; t++, i += 3){
+			output[x].output[t] = GF16mul(output[x].coef[0], input[i]) ^ GF16mul(output[x].coef[1], input[i+1]) ^ GF16mul(output[x].coef[2], input[i+2]);
+		}
+
+		//write it out
+		fwrite(output[x].output, 2, (SIZE+last)/3, clist[x]);
+
+		/*
+		if(last == 1){
+			//write out whitespace
+			uint16_t *ws = malloc(sizeof(uint16_t) * output[x].numEmpty);
+			fwrite(ws, 2, output[x].numEmpty, clist[x]);
+
+			free(ws);
+		}
+		*/
+	}
+
+	//printf("size = %ld\n", SIZE+last);
+}
+
+
+//
+//
+//
+void
 encodeFile(struct arguments facts){
-    uint16_t *input = NULL;
     long file_size_bytes = 0;
     long DATA_LENGTH = 0; //16bit elements
+	long REMAINDER = 0;
+
+	struct chunk *output = malloc(sizeof(struct chunk) * facts.num_of_chunks);
     
-    //buffer size set to 1MB
-    //using 16bit units, so half of what would be in byte
-    //long bufsize = 1000000;
-    long bufsize = 500000;
+    //buffer size set to 1MB in 16bit
+    //need extra 16bit so its divisble by 3
+    long bufsize = 500001;
     long count = 0;
     int whitespace = 0;
     int oddBytes = 0;
     
-    int i, x, t, j;
-    
-    printf("Starting read\n");
-
-    //printf("Hello|%s|\n", facts.input_file_name);
+    int i, x;
     
     //get file input
     FILE *fp;
     fp = fopen(facts.input_file_name, "r+");
 
-    //if(fp == NULL){
-    //	printf("Hello|%s|\n", facts.input_file_name);
-    //}
+    FILE **clist = NULL;
     
     if(fp != NULL){
         if (fseek(fp, 0, SEEK_END) == 0) {
@@ -125,26 +150,56 @@ encodeFile(struct arguments facts){
             	whitespace = 3 - (DATA_LENGTH%3);
             }
             
-            //Allocate our buffer to that size.
-            input = malloc(sizeof(uint16_t) * (DATA_LENGTH + whitespace));
+            //Allocate our buffer
             uint16_t *buffer = malloc(sizeof(uint16_t) * (bufsize));
-            
-            //set off-byte element to 0 so math can work out
-            if(oddBytes == 1){
-            	input[DATA_LENGTH - whitespace - 1] = 0;
-            }
+
+            //get chunks ready
+            clist = malloc(sizeof(FILE*) * facts.num_of_chunks);
+
+            for(i = 0 ; i < facts.num_of_chunks ; i++){
+	        	//make coefficients
+		        for(x = 0; x < 3; x++) {
+		            //make sure coefficients aren't 0
+		            while(1) {
+		                output[i].coef[x] = mt_rand16();
+		                if(output[i].coef[x] != 0)
+		                    break;
+		            }
+		        }
+		        output[i].output = malloc(sizeof(uint16_t) * bufsize);
+		        output[i].numEmpty = whitespace;
+
+		        char namebuf[30];
+		        int name_counter = sprintf(namebuf, "%s-%d", facts.input_file_name, i);
+		        
+		        clist[i] = fopen(namebuf , "w"); //w for write, may need append later
+
+		        //write out file name with appended id, file size, coefficients
+		        fwrite(namebuf, sizeof(char), name_counter+1, clist[i]);
+
+		        long chunk_size_w_header = (((DATA_LENGTH + whitespace)/3)*2) + (sizeof(char)*(name_counter+1)) + sizeof(long) + (sizeof(uint16_t)*3) + (sizeof(int)*2);
+		        long *fs = &chunk_size_w_header;
+		        fwrite(fs, sizeof(long), 1, clist[i]);
+
+		        fwrite(output[i].coef, 2, 3, clist[i]);
+
+		        //printf("file size = %ld\n", chunk_size_w_header);
+        		//printf("chunk_size = %ld\n", ((DATA_LENGTH + whitespace)/3)*2);
+
+		        int *p = &whitespace;
+		        fwrite(p, sizeof(int), 1, clist[i]);
+
+		        int *b = &oddBytes;
+		        fwrite(b, sizeof(int), 1, clist[i]);
+		    }
+
+		    //printf("Before while loop\n");
 
             while(1){
                 if(count >= file_size_bytes){
                     //end of file
-                    //set empty bytes to end
-                    for(i = whitespace ; i > 0 ; i--){
-                        input[DATA_LENGTH-i] = 0;
-                    }
                     break;
                 } else {
-                    //Go back to the start of the file.
-                    //if (fseek(fp, 0L, SEEK_SET) != 0) { /* Error */ }
                     //Go to offset of file which is stored in count
                     if (fseek(fp, count, SEEK_SET) != 0) { /* Error */ }
                     
@@ -154,114 +209,52 @@ encodeFile(struct arguments facts){
                     
                     if (newLen == 0) {
                         fputs("Error reading file", stderr);
-                    }/* else {
-                        source[newLen++] = '\0'; //Just to be safe.
-                    }*/
+                    }
                     
-                    //add buffer to input
-                    //count is in bytes so need to divide by 2 to get 16bit
-                    long offset = (count/2);
-                    //memcpy(input+offset, buffer, sizeof(uint16_t));
-
+                    //long offset = (count/2);
                     if(count + (bufsize*2) > file_size_bytes){
-                    	int remain = bufsize;
+                    	REMAINDER = bufsize;
                     	if(oddBytes == 0){
-                    		remain = (file_size_bytes - count);
+                    		REMAINDER = (file_size_bytes - count);
                     	} else {
-							remain = (file_size_bytes - count + 1);
+							REMAINDER = (file_size_bytes - count + 1);
                     	}
-                    	memcpy(input+offset, buffer, remain);
+                    	//memcpy(input+offset, buffer, REMAINDER);
+                    	//add whitespace to end
+                    	//THIS IS EXPERIMENTAL CODE. NEED TO CONFIRM
+                    	for(i = whitespace ; i > 0 ; i--){
+	                        buffer[REMAINDER+whitespace-i] = 0;
+	                    }
+	                    
+	                    if(oddBytes == 1){
+	                    	REMAINDER += 1;
+	                    }
                     } else {
-                    	memcpy(input+offset, buffer, bufsize*2);
+                    	//memcpy(input+offset, buffer, bufsize*2);
                     }
                     
 
                     //increment count
                     //fseek offset is in bytes. bufsize is in 16bit so * by 2
                     count = count + (bufsize*2);
+
+                    if(REMAINDER == 0){
+                    	encodeMath(output, buffer, bufsize, facts, clist, 0);
+                    } else {
+                    	encodeMath(output, buffer, REMAINDER/2, facts, clist, whitespace);
+                    }
                 }
             }
         }
     }
     
     fclose(fp);
-    
-    printf("Done reading\n");
-    printf("Starting encode and write\n");
-    
-    //set up chunk memoryto be used for each chunk
-    struct chunk out;
-    long chunk_length = (DATA_LENGTH + whitespace)/3;
-    if ((out.output = malloc( chunk_length * sizeof(out.output))) == NULL) { // 16bit
-        perror("malloc");
-        exit(1);
+    for(i = 0 ; i < facts.num_of_chunks ; i++){
+    	fclose(clist[i]);
+    	free(output[i].output);
     }
-    
-    //for loop:
-    //--makes coefficients
-    //--encodes
-    //--writes out
-    for(j = 0 ; j < facts.num_of_chunks ; j++){
-        //make coefficients
-        for(x = 0; x < 3; x++) {
-            //make sure coefficients aren't 0
-            while(1) {
-                out.coef[x] = mt_rand16();
-                if(out.coef[x] != 0)
-                    break;
-            }
-        }
-        
-        out.numEmpty = whitespace;
-        
-        //for(i = 0, t = 0; i < DATA_LENGTH ; t++, i += 3){
-        for(i = 0, t = 0; i < (DATA_LENGTH + whitespace) ; t++, i += 3){
-            out.output[t] = GF16mul(out.coef[0], input[i]) ^ GF16mul(out.coef[1], input[i+1]) ^ GF16mul(out.coef[2], input[i+2]);
-        }
-        
-        
-        
-        char namebuf[100];
-        sprintf(namebuf, "%s-%d", facts.input_file_name, j);
-        
-        fp = fopen(namebuf , "w" ); //w for write, may need append later
-        fwrite(out.coef, 2, 3, fp);
-        
-        int *p = &whitespace;
-        fwrite(p, sizeof(int), 1, fp);
-
-        int *b = &oddBytes;
-        fwrite(b, sizeof(int), 1, fp);
-        
-        //write out output array
-        //while(1){
-        fwrite(out.output, 2, (DATA_LENGTH+whitespace)/3, fp);
-        //}
-        
-        
-        fclose(fp);
-
-        /*
-        printf("coef %d %d %d and whitespace %d and odd bytes %d\n",
-                       out.coef[0],
-                       out.coef[1],
-                       out.coef[2],
-                       *p,
-                       *b);
-		*/
-        //printf("%d\n", sizeof(int));
-                       
-        
-    }
-    
-    printf("Done encoding\n");
-
-    //fp = fopen("fileCheck" , "w+" );
-    //fwrite(input, 2, DATA_LENGTH, fp);
-
-    //for(i = 0 ; i < 10 ; i++){
-    //	printf("%x\n", input[i]);
-    //}
+    free(clist);
+    free(output);
 }
 
 //
@@ -291,138 +284,9 @@ int main(int argc, char **argv){
     //gets file and encodes
     encodeFile(facts);
     
-    printf("Done\n");
-    
-    return 0;
-    
-    //intput
-    //uint16_t *input;
-    
-    /*
-    //output chunks
-    struct chunk output[facts.num_of_chunks];
-    int i;
-    for(i = 0 ; i < facts.num_of_chunks ; i++){
-        struct chunk out;
-        out.numEmpty = 0;
-        out.output = NULL;
-        output[i] = out;
-    }
-    */
-
-    
-    
-    
-    /*
-    //get coefficients (new)
-    for (i = 0; i < 3; i++) {
-        for(j = 0; j < 3; j++) {
-            //make sure coefficients aren't 0
-            while(1) {
-                output[i].coef[j] = mt_rand16();
-                if(output[i].coef[j] != 0)
-                    break;
-            }
-        }
-    }
-
-    //    uint16_t    a[3][3], b[3], x[3];
-    //b[0] = a[0][0] * x[0] + a[0][1] * x[1] + a[0][2] * x[2];
-    //b[1] = a[1][0] * x[0] + a[1][1] * x[1] + a[1][2] * x[2];
-    //b[2] = a[2][0] * x[0] + a[2][1] * x[1] + a[2][2] * x[2];
-
-    printf("Encoding\n");
-    
-    //encode section
-    for(i = 0, t = 0; i < DATA_LENGTH ; t++, i += 3){
-        output[0].output[t] = GF16mul(output[0].coef[0], input[i]) ^ GF16mul(output[0].coef[1], input[i+1]) ^ GF16mul(output[0].coef[2], input[i+2]);
-        output[1].output[t] = GF16mul(output[1].coef[0], input[i]) ^ GF16mul(output[1].coef[1], input[i+1]) ^ GF16mul(output[1].coef[2], input[i+2]);
-        output[2].output[t] = GF16mul(output[2].coef[0], input[i]) ^ GF16mul(output[2].coef[1], input[i+1]) ^ GF16mul(output[2].coef[2], input[i+2]);
-    }
-    */
-    /*
-    printf("Decoding\n");
-    
-    //variables
-    uint16_t *final;
-    
-    //allocate space for final file
-    if ((final = malloc(DATA_LENGTH * sizeof *input)) == NULL) { // 16bit
-        perror("malloc");
-        exit(1);
-    }
-    
-    //set up c variables
-    uint16_t c0;
-    uint16_t c1;
-    uint16_t c2;
-    uint16_t c3;
-    uint16_t c4;
-    
-    //do math for c variables
-    c0 = GF16mul(output[1].coef[0], output[0].coef[1]) ^ GF16mul(output[0].coef[0], output[1].coef[1]);
-    c1 = GF16mul(output[1].coef[0], output[0].coef[2]) ^ GF16mul(output[0].coef[0], output[1].coef[2]);
-    c2 = GF16mul(output[2].coef[0], output[0].coef[1]) ^ GF16mul(output[0].coef[0], output[2].coef[1]);
-    c3 = GF16mul(output[2].coef[0], output[0].coef[2]) ^ GF16mul(output[0].coef[0], output[2].coef[2]);
-    c4 = GF16mul(c1, c2) ^ GF16mul(c0, c3);
-    
-    uint16_t *t0 = malloc(DATA_LENGTH/3 * sizeof *t0);
-    uint16_t *t1 = malloc(DATA_LENGTH/3 * sizeof *t1);
-    
-    for(i = 0 ; i < DATA_LENGTH/3 ; i++){
-        t0[i] = GF16mul(output[1].coef[0], output[0].output[i]) ^ GF16mul(output[0].coef[0], output[1].output[i]);
-        t1[i] = GF16mul(output[2].coef[0], output[0].output[i]) ^ GF16mul(output[0].coef[0], output[2].output[i]);
-    }
-    
-    uint16_t *x1 = malloc(DATA_LENGTH/3 * sizeof *x1);
-    uint16_t *x2 = malloc(DATA_LENGTH/3 * sizeof *x2);
-    uint16_t *x3 = malloc(DATA_LENGTH/3 * sizeof *x3);
-    
-    for(i = 0 ; i < DATA_LENGTH/3 ; i++){
-        x2[i] = GF16div((GF16mul(c2, t0[i]) ^ GF16mul(c0, t1[i])),c4);
-        x1[i] = GF16div((t0[i] ^ GF16mul(c1, x2[i])),c0);
-        x3[i] = GF16div((output[0].output[i] ^ GF16mul(output[0].coef[1], x1[i]) ^ GF16mul(output[0].coef[2], x2[i])),output[0].coef[0]);
-    }
-    
-    for(i = 0, t = 0 ; i < DATA_LENGTH ; i +=3, t++){
-        //final[i] = x1[t];
-        //final[i+1] = x2[t];
-        //final[i+2] = x3[t];
-        final[i] = x3[t];
-        final[i+1] = x1[t];
-        final[i+2] = x2[t];
-    }
-    
-    printf("Checking...\n");
-    
-    //check
-    for( i = 0 ; i < DATA_LENGTH ; i++){
-        if(input[i] != final[i]){
-            printf("Not equal at %d\n", i);
-            printf("%d and %d\n", input[i], final[i]);
-            //printf("%d and %d\n", input[i+1], final[i+1]);
-            //printf("%d and %d\n", input[i+2], final[i+2]);
-            break;
-        }
-    }
-    */
-    
     //printf("Done\n");
     
-    /*
-    free(input);
-    free(output[0].output);
-    free(output[1].output);
-    free(output[2].output);
-    */
-    /*
-    free(final);
-    free(x1);
-    free(x2);
-    free(x3);
-    */
-    
-    //return 0;
+    return 0;
 }
 
 
