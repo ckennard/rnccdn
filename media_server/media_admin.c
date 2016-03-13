@@ -5,7 +5,8 @@
 
 //receive data from client socket, parse it out into a header and the payload (the actual chunk data)
 //TODO: check for data validity using header fields
-void receive_chunk(client_sock_fd, ChunkHeader **out_chunk_header, char **out_chunk_payload) {
+//TODO: instead of keeping entire chunk data in memory at once, periodically write parts of it to disk
+void receive_chunk(client_sock_fd, out_fd, ChunkHeader **out_chunk_header, char **out_chunk_payload) {
   int result = 0;
   char recv_buf[256];
   ChunkHeader *chunk_header;
@@ -14,23 +15,31 @@ void receive_chunk(client_sock_fd, ChunkHeader **out_chunk_header, char **out_ch
   unsigned int num_received = 0;
   unsigned int num_processed = 0;
 
+  unsigned int num_payload = 0;
+  unsigned int num_header = 0;
+
   while((result = recv(client_sock_fd, RECV_BUF_SIZE)) > 0) {
 
     num_received += result;
-
-    if(num_processed <= sizeof(ChunkHeader)) {
-      //header is still being received
-      memcpy(chunk_header+num_processed, recv_buf, result);
+    if(num_processed <= sizeof(ChunkHeader)) { //header is still being received
+      if(num_received >= sizeof(ChunkHeader)) {
+        //data received contains both header and payload bytes
+        num_payload = num_received - sizeof(ChunkHeader);
+        num_header = sizeof(ChunkHeader) - num_processed;
+        
+        memcpy(chunk_header+num_processed, recv_buf, num_header);
+        memcpy(chunk_payload, recv_buf+num_header, num_payload);
+      } else {
+        //header is still being received
+        memcpy(chunk_header+num_processed, recv_buf, result);
+      }
     } else {
-      //body is being received
+      //payload is being received
       memcpy(chunk_payload+(num_processed-sizeof(ChunkHeader)), recv_buf, result;
     }
 
     num_processed = num_received;
   }
-
-  *out_chunk_payload = chunk_payload;
-  *out_chunk_header = chunk_header;
 }
 
 int main(int argc, char **argv) {
@@ -76,5 +85,6 @@ int main(int argc, char **argv) {
     }
 
     //receive the message header
+
   }
 }
