@@ -80,19 +80,16 @@ encodeFile(struct arguments facts){
     uint16_t *input = NULL;
     long file_size_bytes = 0;
     long DATA_LENGTH = 0; //16bit elements
-	long chunk_length;
-
-	struct chunk out;
     
-    //buffer size set to 1MB in 16bit
+    //buffer size set to 1MB
+    //using 16bit units, so half of what would be in byte
+    //long bufsize = 1000000;
     long bufsize = 500000;
     long count = 0;
     int whitespace = 0;
     int oddBytes = 0;
     
     int i, x, t, j;
-
-    
     
     printf("Starting read\n");
 
@@ -193,13 +190,12 @@ encodeFile(struct arguments facts){
     printf("Starting encode and write\n");
     
     //set up chunk memoryto be used for each chunk
-    
-    chunk_length = (DATA_LENGTH + whitespace)/3;
+    struct chunk out;
+    long chunk_length = (DATA_LENGTH + whitespace)/3;
     if ((out.output = malloc( chunk_length * sizeof(out.output))) == NULL) { // 16bit
         perror("malloc");
         exit(1);
     }
-    
     
     //for loop:
     //--makes coefficients
@@ -207,7 +203,6 @@ encodeFile(struct arguments facts){
     //--writes out
     for(j = 0 ; j < facts.num_of_chunks ; j++){
         //make coefficients
-        
         for(x = 0; x < 3; x++) {
             //make sure coefficients aren't 0
             while(1) {
@@ -218,7 +213,6 @@ encodeFile(struct arguments facts){
         }
         
         out.numEmpty = whitespace;
-        
         
         //for(i = 0, t = 0; i < DATA_LENGTH ; t++, i += 3){
         for(i = 0, t = 0; i < (DATA_LENGTH + whitespace) ; t++, i += 3){
