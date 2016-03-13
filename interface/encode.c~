@@ -14,7 +14,7 @@
 #define SPACE  600000
 //#define DATA_LENGTH   SPACE / sizeof(uint16_t)
 
-// 
+//
 //
 //
 struct arguments {

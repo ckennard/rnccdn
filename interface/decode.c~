@@ -16,7 +16,7 @@
 
 //
 //
-// 
+//
 struct arguments {
     int num_of_chunks;
     char * input_file_name;
