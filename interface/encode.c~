@@ -169,22 +169,23 @@ encodeFile(struct arguments facts){
 		        output[i].output = malloc(sizeof(uint16_t) * bufsize);
 		        output[i].numEmpty = whitespace;
 
+		        //open file for writing out header
 		        char namebuf[30];
-		        int name_counter = sprintf(namebuf, "%s-%d", facts.input_file_name, i);
+		        sprintf(namebuf, "%s-%d", facts.input_file_name, i);
 		        
 		        clist[i] = fopen(namebuf , "w"); //w for write, may need append later
 
 		        //write out file name with appended id, file size, coefficients
-		        fwrite(namebuf, sizeof(char), name_counter+1, clist[i]);
+		        fwrite(namebuf, sizeof(char), 30, clist[i]);
 
-		        long chunk_size_w_header = (((DATA_LENGTH + whitespace)/3)*2) + (sizeof(char)*(name_counter+1)) + sizeof(long) + (sizeof(uint16_t)*3) + (sizeof(int)*2);
+		        long chunk_size_w_header = (((DATA_LENGTH + whitespace)/3)*2) + (sizeof(char)*30) + sizeof(long) + (sizeof(uint16_t)*3) + (sizeof(int)*2);
 		        long *fs = &chunk_size_w_header;
 		        fwrite(fs, sizeof(long), 1, clist[i]);
 
 		        fwrite(output[i].coef, 2, 3, clist[i]);
 
-		        //printf("file size = %ld\n", chunk_size_w_header);
-        		//printf("chunk_size = %ld\n", ((DATA_LENGTH + whitespace)/3)*2);
+		        printf("file size = %ld\n", chunk_size_w_header);
+        		printf("chunk_size = %ld\n", ((DATA_LENGTH + whitespace)/3)*2);
 
 		        int *p = &whitespace;
 		        fwrite(p, sizeof(int), 1, clist[i]);

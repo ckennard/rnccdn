@@ -177,9 +177,6 @@ decodeMath(struct chunk *output, long CHUNK_SIZE, FILE *finalFile, int last){
 
 }
 
-
-
-
 //
 //
 //
@@ -202,7 +199,7 @@ decodeFile(struct arguments facts){
     //int whitespace = 0;
     
     struct chunk output[3];
-    int i, x;
+    int i;
     
     //set up 3 chunks
     for(i = 0 ; i < 3 ; i++){
@@ -248,6 +245,9 @@ decodeFile(struct arguments facts){
 
                 //get file name
                 char namebuf[30];
+                newLen = fread(namebuf, sizeof(char), 30, clist[i]);
+                /*
+                char namebuf[30];
                 for(x = 0 ; x < 30 ; x++){
                     char temp[1];
                     newLen = fread(temp, sizeof(char), 1, clist[i]);
@@ -256,6 +256,7 @@ decodeFile(struct arguments facts){
                         break;
                     }
                 }
+                */
                 //printf("File name = %s\n", namebuf);
 
                 //get file size
@@ -263,16 +264,16 @@ decodeFile(struct arguments facts){
                 newLen = fread(fs, sizeof(long), 1, clist[i]);
                 
                 //get chunk info from file length
-                countOther = (sizeof(char)*(x+1)) + sizeof(long) + (sizeof(uint16_t)*3) + (sizeof(int)*2); 
-                CHUNK_LENGTH = (file_size_bytes - (sizeof(char)*(x+1)) - sizeof(long) - (sizeof(uint16_t)*3) - (sizeof(int)*2))/2;
+                //countOther = (sizeof(char)*(x+1)) + sizeof(long) + (sizeof(uint16_t)*3) + (sizeof(int)*2); 
+                //CHUNK_LENGTH = (file_size_bytes - (sizeof(char)*(x+1)) - sizeof(long) - (sizeof(uint16_t)*3) - (sizeof(int)*2))/2;
+                countOther = (sizeof(char)*30) + sizeof(long) + (sizeof(uint16_t)*3) + (sizeof(int)*2); 
+                CHUNK_LENGTH = (file_size_bytes - (sizeof(char)*30) - sizeof(long) - (sizeof(uint16_t)*3) - (sizeof(int)*2))/2;
 
                 //printf("File size = %ld\n", fs[0]);
                 //printf("Chunk length = %ld\n", CHUNK_LENGTH);
 
                 //get coefficients
                 newLen = fread(output[i].coef, sizeof(uint16_t), 3, clist[i]);
-                
-
                 
                 //getting whitespace count
                 int *p = malloc(sizeof(int));
