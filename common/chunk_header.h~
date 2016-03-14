@@ -3,11 +3,8 @@
 
 //total size should be 64 bytes (probably subject to change)
 struct MessageHeader {
-	char file_name[30];
-	long file_size;
-	uint16_t coef[3];
-	int whitespace;
-	int oddByte;
-};
+  char file_name[30];
+  long file_size;
+}
 
 #endif
