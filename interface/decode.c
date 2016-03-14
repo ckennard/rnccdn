@@ -202,7 +202,8 @@ decodeFile(struct arguments facts){
 
     //start of file has 3 16bit numbers and an int for whitespace and int for oddbyte
     long count = 0;
-    long countOther = sizeof(uint16_t)*3 + sizeof(int) + sizeof(int);
+    //long countOther = sizeof(uint16_t)*3 + sizeof(int) + sizeof(int);
+    long countOther = 0;
 
     //int whitespace = 0;
 
@@ -239,7 +240,7 @@ decodeFile(struct arguments facts){
             if (file_size_bytes == -1) { /* Error */ }
 
             //subtract coefficients and whitespace here
-            CHUNK_LENGTH = (file_size_bytes - (sizeof(uint16_t)*3) - sizeof(int) - sizeof(int))/2;
+            //CHUNK_LENGTH = (file_size_bytes - (sizeof(uint16_t)*3) - sizeof(int) - sizeof(int))/2;
             //DATA_LENGTH = CHUNK_LENGTH*3;
 
             //go to beginning of file
@@ -249,12 +250,39 @@ decodeFile(struct arguments facts){
 
             //getting header info
             for(i = 0 ; i < 3 ; i++){
-                //get coefficients
-                size_t newLen = fread(output[i].coef, sizeof(uint16_t), 3, clist[i]);
+                size_t newLen;
 
-                if (newLen == 0) {
-                    fputs("Error reading file", stderr);
+                //get file name
+                char namebuf[30];
+                newLen = fread(namebuf, sizeof(char), 30, clist[i]);
+                /*
+                char namebuf[30];
+                for(x = 0 ; x < 30 ; x++){
+                    char temp[1];
+                    newLen = fread(temp, sizeof(char), 1, clist[i]);
+                    namebuf[x] = temp[0];
+                    if(temp[0] == '\0'){
+                        break;
+                    }
                 }
+                */
+                //printf("File name = %s\n", namebuf);
+
+                //get file size
+                long *fs = malloc(sizeof(long));
+                newLen = fread(fs, sizeof(long), 1, clist[i]);
+
+                //get chunk info from file length
+                //countOther = (sizeof(char)*(x+1)) + sizeof(long) + (sizeof(uint16_t)*3) + (sizeof(int)*2);
+                //CHUNK_LENGTH = (file_size_bytes - (sizeof(char)*(x+1)) - sizeof(long) - (sizeof(uint16_t)*3) - (sizeof(int)*2))/2;
+                countOther = (sizeof(char)*30) + sizeof(long) + (sizeof(uint16_t)*3) + (sizeof(int)*2);
+                CHUNK_LENGTH = (file_size_bytes - (sizeof(char)*30) - sizeof(long) - (sizeof(uint16_t)*3) - (sizeof(int)*2))/2;
+
+                //printf("File size = %ld\n", fs[0]);
+                //printf("Chunk length = %ld\n", CHUNK_LENGTH);
+
+                //get coefficients
+                newLen = fread(output[i].coef, sizeof(uint16_t), 3, clist[i]);
 
                 //getting whitespace count
                 int *p = malloc(sizeof(int));
@@ -270,9 +298,11 @@ decodeFile(struct arguments facts){
                 newLen = fread(b, sizeof(int), 1, clist[i]);
                 output[i].oddBytes = *b;
 
+
                 if (newLen == 0) {
                     fputs("Error reading file", stderr);
                 }
+
 
                 /*
                 printf("coef %d %d %d and whitespace %d and odd bytes %d\n",
