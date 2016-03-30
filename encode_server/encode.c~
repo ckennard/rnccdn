@@ -279,28 +279,9 @@ void Die(char *mess) { perror(mess); exit(1); }
 //
 //
 void connectAndSend(char *SERVER_ADDRESS, char *FILE_TO_SEND){
-    /*
-    //first read in header from file
-    int header_length = (sizeof(char)*30) + sizeof(long) + (sizeof(uint16_t)*3) + (sizeof(int)*2);
-    FILE *fp = fopen(FILE_TO_SEND, "r");
-    uint8_t *header = malloc(sizeof(uint8_t) * header_length);
-
-    if (fseek(fp, 0, SEEK_SET) != 0) {  }
-
-    size_t newLen = fread(header, sizeof(uint8_t), header_length, fp);
-
-    if (newLen == 0) {
-        fputs("Error reading file", stderr);
-    }
-    */
-
     //server code
     int server_socket;
-    //int peer_socket;
-    //socklen_t       sock_len;
     ssize_t len;
-    //struct sockaddr_in      server_addr;
-    //struct sockaddr_in      peer_addr;
     int fd;
     int sent_bytes = 0;
     char file_size[256];
@@ -308,21 +289,20 @@ void connectAndSend(char *SERVER_ADDRESS, char *FILE_TO_SEND){
     off_t offset;
     int remain_data;
 
-    // 
     struct sockaddr_in echoserver;
 
-	/* Create the TCP socket */
+	// Create the TCP socket 
 	if ((server_socket = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0){
 		Die("Failed to create socket");
 	}
 
-	/* Construct server information */
+	// Construct server information
 	memset(&echoserver, 0, sizeof(echoserver));
 	echoserver.sin_family = AF_INET;
 	echoserver.sin_addr.s_addr = inet_addr(SERVER_ADDRESS);
 	echoserver.sin_port = htons(PORT_NUMBER);
 
-	/* Establish Connection */
+	// Establish Connection
 	if(connect(server_socket,(struct sockaddr *) &echoserver, sizeof(echoserver)) < 0){
 	    Die("Failed to connect with server");
 	} else {
@@ -336,7 +316,7 @@ void connectAndSend(char *SERVER_ADDRESS, char *FILE_TO_SEND){
         exit(EXIT_FAILURE);
     }
 
-    /* Get file stats */
+    // Get file stats 
     if (fstat(fd, &file_stat) < 0){
         fprintf(stderr, "Error fstat --> %s", strerror(errno));
 
@@ -347,30 +327,16 @@ void connectAndSend(char *SERVER_ADDRESS, char *FILE_TO_SEND){
 
     sprintf(file_size, "%d", (int)file_stat.st_size);
 
-    /* Sending file size */
-    /*
-    len = send(peer_socket, file_size, sizeof(file_size), 0);
-    if (len < 0)
-    {
-          fprintf(stderr, "Error on sending greetings --> %s", strerror(errno));
-
-          exit(EXIT_FAILURE);
-    }
-
-    fprintf(stdout, "Server sent %d bytes for the size\n", (int)len);
-    */
-
     //send message
-    int message[1] = {1};
+    int message[2] = {1, (int)file_stat.st_size};
     len = send(server_socket, message, sizeof(message), 0);
     if (len < 0){
       fprintf(stderr, "Error on sending message --> %s", strerror(errno));
 
-      exit(EXIT_FAILURE);
+      exit(EXIT_FAILURE); 
     }
 
     fprintf(stdout, "Server sent %d bytes for the size\n", (int)len);
-
 
     offset = 0;
     remain_data = file_stat.st_size;
@@ -381,7 +347,6 @@ void connectAndSend(char *SERVER_ADDRESS, char *FILE_TO_SEND){
         fprintf(stdout, "2. Server sent %d bytes from file's data, offset is now : %d and remaining data = %d\n", sent_bytes, (int)offset, remain_data);
     }
 
-    //close(peer_socket);
     close(server_socket);
 }
 

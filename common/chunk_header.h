@@ -2,7 +2,7 @@
 #define CLIENT_SERVER_COMMMON
 
 //total size should be 64 bytes (probably subject to change)
-struct MessageHeader {
+struct ChunkHeader {
 	char file_name[30];
 	long file_size;
 	uint16_t coef[3];
