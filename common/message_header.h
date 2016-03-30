@@ -10,7 +10,14 @@
 #define TYPE_ERROR 4
 //message followed by null-terminated error string
 
+//for pushing chunks
 struct MessageHeader {
-  int Type;
-  int MessageLen; //the length of the data that follows this header
+	int Type;
+	int MessageLen; //the length of the data that follows this header
+};
+
+//for requesting chunks 
+struct MessageHeader2 {
+	int Type;
+	char FileName[30];
 };
