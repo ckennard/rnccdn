@@ -269,7 +269,7 @@ decodeFile(struct arguments facts){
                 countOther = (sizeof(char)*30) + sizeof(long) + (sizeof(uint16_t)*3) + (sizeof(int)*2); 
                 CHUNK_LENGTH = (file_size_bytes - (sizeof(char)*30) - sizeof(long) - (sizeof(uint16_t)*3) - (sizeof(int)*2))/2;
 
-                //printf("File size = %ld\n", fs[0]); 
+                //printf("File size = %ld\n", fs[0]);
                 //printf("Chunk length = %ld\n", CHUNK_LENGTH);
 
                 //get coefficients

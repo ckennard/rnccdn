@@ -3,6 +3,19 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
+
+//
+#include <sys/types.h>
+#include <errno.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <sys/sendfile.h> 
+//
+
 // #include <assert.h>
 // google test...
 //dont have array of chunks. (IMPORTANT)
@@ -10,6 +23,8 @@
 
 #include "gf.h"
 #include "mt64.h"
+
+#define PORT_NUMBER 3001
 
 #define SPACE  600000
 //#define DATA_LENGTH   SPACE / sizeof(uint16_t)
@@ -169,7 +184,7 @@ encodeFile(struct arguments facts){
 		        output[i].output = malloc(sizeof(uint16_t) * bufsize);
 		        output[i].numEmpty = whitespace;
 
-		        //open file for writing out header 
+		        //open file for writing out header
 		        char namebuf[30];
 		        sprintf(namebuf, "%s-%d", facts.input_file_name, i);
 		        
@@ -258,8 +273,101 @@ encodeFile(struct arguments facts){
     free(output);
 }
 
+
+void Die(char *mess) { perror(mess); exit(1); }
 //
-// Use getopts()
+//
+//
+void connectAndSend(char *SERVER_ADDRESS, char *FILE_TO_SEND){
+    //server code
+    int server_socket;
+    ssize_t len;
+    int fd;
+    int sent_bytes = 0;
+    char file_size[256];
+    struct stat file_stat;
+    off_t offset;
+    int remain_data;
+
+    struct sockaddr_in echoserver;
+
+	// Create the TCP socket 
+	if ((server_socket = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0){
+		Die("Failed to create socket");
+	}
+
+	// Construct server information
+	memset(&echoserver, 0, sizeof(echoserver));
+	echoserver.sin_family = AF_INET;
+	echoserver.sin_addr.s_addr = inet_addr(SERVER_ADDRESS);
+	echoserver.sin_port = htons(PORT_NUMBER);
+
+	// Establish Connection
+	if(connect(server_socket,(struct sockaddr *) &echoserver, sizeof(echoserver)) < 0){
+	    Die("Failed to connect with server");
+	} else {
+		printf("Connected to server");
+	}
+
+    fd = open(FILE_TO_SEND, O_RDONLY);
+    if (fd == -1){
+        fprintf(stderr, "Error opening file --> %s", strerror(errno));
+
+        exit(EXIT_FAILURE);
+    }
+
+    // Get file stats 
+    if (fstat(fd, &file_stat) < 0){
+        fprintf(stderr, "Error fstat --> %s", strerror(errno));
+
+        exit(EXIT_FAILURE);
+    }
+
+    fprintf(stdout, "File Size: \n%d bytes\n", (int)file_stat.st_size);
+
+    sprintf(file_size, "%d", (int)file_stat.st_size);
+
+    //send message
+    int message[2] = {1, (int)file_stat.st_size};
+    len = send(server_socket, message, sizeof(message), 0);
+    if (len < 0){
+      fprintf(stderr, "Error on sending message --> %s", strerror(errno));
+
+      exit(EXIT_FAILURE);
+    }
+
+    fprintf(stdout, "Server sent %d bytes for the size\n", (int)len);
+
+    offset = 0;
+    remain_data = file_stat.st_size;
+    // Sending file data 
+    while (((sent_bytes = sendfile(server_socket, fd, &offset, BUFSIZ)) > 0) && (remain_data > 0)){
+        fprintf(stdout, "1. Server sent %d bytes from file's data, offset is now : %d and remaining data = %d\n", sent_bytes, (int)offset, remain_data);
+        remain_data -= sent_bytes;
+        fprintf(stdout, "2. Server sent %d bytes from file's data, offset is now : %d and remaining data = %d\n", sent_bytes, (int)offset, remain_data);
+    }
+
+    close(server_socket);
+}
+
+//
+//
+//
+void sendChunks(struct arguments facts){
+    char *address[3] = {"127.0.0.1", "127.0.0.1", "127.0.0.1"};
+
+    int i;
+    for(i = 0 ; i < facts.num_of_chunks ; i++){
+        char name_buf[30];
+        sprintf(name_buf, "%s-%d", facts.input_file_name, i);
+        connectAndSend(address[i], name_buf);
+    }
+}
+
+
+
+//
+//
 //
 int main(int argc, char **argv){
     //struct that holds the passed arguments
@@ -284,6 +392,9 @@ int main(int argc, char **argv){
     
     //gets file and encodes
     encodeFile(facts);
+
+    //sends chunks to media server
+    sendChunks(facts);
     
     //printf("Done\n");
     

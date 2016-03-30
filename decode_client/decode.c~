@@ -2,6 +2,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
 
 // #include <assert.h>
 // google test...
@@ -11,8 +14,12 @@
 #include "gf.h"
 #include "mt64.h"
 
+#define BUFFSIZE 32
+
 #define SPACE  600000
 //#define DATA_LENGTH   SPACE / sizeof(uint16_t)
+
+void Die(char *mess) { perror(mess); exit(1); }
 
 //
 //
@@ -269,7 +276,7 @@ decodeFile(struct arguments facts){
                 countOther = (sizeof(char)*30) + sizeof(long) + (sizeof(uint16_t)*3) + (sizeof(int)*2); 
                 CHUNK_LENGTH = (file_size_bytes - (sizeof(char)*30) - sizeof(long) - (sizeof(uint16_t)*3) - (sizeof(int)*2))/2;
 
-                //printf("File size = %ld\n", fs[0]); 
+                //printf("File size = %ld\n", fs[0]);
                 //printf("Chunk length = %ld\n", CHUNK_LENGTH);
 
                 //get coefficients
@@ -367,6 +374,90 @@ decodeFile(struct arguments facts){
     fclose(ff);
 }
 
+void receiveFile(char *filename, char *ipaddress, int call){
+    int sock;
+    struct sockaddr_in echoserver;
+    char buffer[BUFFSIZE];
+    //unsigned int echolen;
+    int message_size = 19564; //NEEDS TO BE REMOVED ONCE WE TRANSMIT FILE SIZE
+    int received = 0;
+    int port = 3000;
+
+    /* Create the TCP socket */
+    if ((sock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0){
+        Die("Failed to create socket\n");
+    }
+
+    /* Construct server information */
+    memset(&echoserver, 0, sizeof(echoserver));
+    echoserver.sin_family = AF_INET;
+    echoserver.sin_addr.s_addr = inet_addr(ipaddress);
+    echoserver.sin_port = htons(port);
+
+    /* Establish Connection */
+    if(connect(sock,(struct sockaddr *) &echoserver, sizeof(echoserver)) < 0){
+        Die("Failed to connect with server\n");
+    } else {
+        printf("Connected to server\n");
+    }
+
+    //Send Message 1/2 (type to media server)
+    int message[1] = {2};
+    if (send(sock, message, sizeof(message), 0) != sizeof(message)) {
+        Die("Mismatch in number of sent bytes\n");
+    }
+
+    //Send Message 2/2 (filename to media server)
+    if (send(sock, filename, sizeof(filename), 0) != sizeof(filename)) {
+        Die("Mismatch in number of sent bytes\n");
+    }
+
+    if(call == 0){
+        strcat(filename, "-0");
+    }
+    if(call == 1){
+        strcat(filename, "-1");
+    }
+    if(call == 2){
+        strcat(filename, "-2");
+    }
+
+    remove(filename);
+    FILE *fp = fopen(filename, "w");
+    if (fp == NULL){
+        printf("Error opening/creating file.\n");
+        exit(1);
+    }
+
+    /* Receive the word back from the server */
+    fprintf(stdout, "Received: ");
+    while (received < message_size) {
+        int bytes = 0;
+        if ((bytes = recv(sock, buffer, BUFFSIZE-1, 0)) < 1) {
+            Die("Failed to receive bytes from server\n");
+        }
+        received += bytes;
+        buffer[bytes] = '\0';        /* Assure null terminated string */
+        //fprintf(stdout, buffer);
+        fprintf(fp, "%s", buffer);
+    }
+    fclose(fp);
+    fprintf(stdout, "\n");
+    close(sock);
+}
+
+void fetchFile(struct arguments facts){
+    char filename[30];    //set up charbuffer for filename
+    strcpy(filename, facts.chunks[0]);    //assign filename from args to filename variable
+    filename[strlen(filename)-2] = '\0';     //trim off the -1
+    printf("Fetching %s...\nchunk 1/3...\n", filename);
+    receiveFile(filename, "127.0.0.1", 0);
+    printf("Chunk 2/3...\n");
+    receiveFile(filename, "127.0.0.1", 1);
+    printf("Chunk 3/3...\n");
+    receiveFile(filename, "127.0.0.1", 2);
+}
+
 //
 // Use getopts()
 //
@@ -391,6 +482,9 @@ int main(int argc, char **argv){
     // Initialize GF
     GF16init();
     
+    //fetches files from media server
+    fetchFile(facts);
+
     //gets file and encodes
     decodeFile(facts);
     

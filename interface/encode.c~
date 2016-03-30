@@ -169,7 +169,7 @@ encodeFile(struct arguments facts){
 		        output[i].output = malloc(sizeof(uint16_t) * bufsize);
 		        output[i].numEmpty = whitespace;
 
-		        //open file for writing out header 
+		        //open file for writing out header
 		        char namebuf[30];
 		        sprintf(namebuf, "%s-%d", facts.input_file_name, i);
 		        
