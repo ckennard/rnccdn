@@ -13,7 +13,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <sys/sendfile.h>
+#include <sys/sendfile.h> 
 //
 
 // #include <assert.h>
@@ -354,7 +354,7 @@ void connectAndSend(char *SERVER_ADDRESS, char *FILE_TO_SEND){
 //
 //
 void sendChunks(struct arguments facts){
-    char *address[3] = {"127.0.0.0", "127.0.0.0", "127.0.0.0"};
+    char *address[3] = {"127.0.0.1", "127.0.0.1", "127.0.0.1"};
 
     int i;
     for(i = 0 ; i < facts.num_of_chunks ; i++){

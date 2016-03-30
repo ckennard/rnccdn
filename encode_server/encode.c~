@@ -333,7 +333,7 @@ void connectAndSend(char *SERVER_ADDRESS, char *FILE_TO_SEND){
     if (len < 0){
       fprintf(stderr, "Error on sending message --> %s", strerror(errno));
 
-      exit(EXIT_FAILURE); 
+      exit(EXIT_FAILURE);
     }
 
     fprintf(stdout, "Server sent %d bytes for the size\n", (int)len);
@@ -354,7 +354,7 @@ void connectAndSend(char *SERVER_ADDRESS, char *FILE_TO_SEND){
 //
 //
 void sendChunks(struct arguments facts){
-    char *address[3] = {"127.0.0.0", "127.0.0.0", "127.0.0.0"};
+    char *address[3] = {"127.0.0.1", "127.0.0.1", "127.0.0.1"};
 
     int i;
     for(i = 0 ; i < facts.num_of_chunks ; i++){
