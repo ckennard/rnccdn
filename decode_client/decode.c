@@ -16,9 +16,7 @@
 #include "../common/message_header.h"
 
 #define BUFFSIZE 32
-
-#define SPACE 600000
-//#define DATA_LENGTH  SPACE / sizeof(uint16_t)
+#define MAX_PATH 256
 
 void Die(char *mess) { perror(mess); exit(1); }
 
@@ -375,17 +373,15 @@ decodeFile(struct arguments facts){
   fclose(ff);
 }
 
-void receiveFile(char *filename, char *ipaddress, int call){
+void receiveFile(char *filename, char *ipaddress, int port, int chunk_num){
   int sock;
   struct sockaddr_in echoserver;
   char buffer[BUFFSIZE];
   //unsigned int echolen;
-  int message_size = 19564; //NEEDS TO BE REMOVED ONCE WE TRANSMIT FILE SIZE
   int received = 0;
-  int port = 3000;
+  int message_size = 0;
   struct MessageHeader message_header;
-  memcpy(&message_header, 0, sizeof(struct MessageHeader));
-
+  memset(&message_header, 0, sizeof(struct MessageHeader));
 
   /* Create the TCP socket */
   if ((sock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0){
@@ -405,28 +401,21 @@ void receiveFile(char *filename, char *ipaddress, int call){
     printf("Connected to server\n");
   }
 
-  message_header.Type = TYPE_REQUEST_CHUNK;
-  
-
-  //Send Message 1/2 (type to media server)
-  int message[1] = {2};
-  if (send(sock, message, sizeof(message), 0) != sizeof(message)) {
-    Die("Mismatch in number of sent bytes\n");
-  }
-
-  //Send Message 2/2 (filename to media server)
-  if (send(sock, filename, sizeof(filename), 0) != sizeof(filename)) {
-    Die("Mismatch in number of sent bytes\n");
-  }
-
-  if(call == 0){
+  if(chunk_num == 0){
     strcat(filename, "-0");
   }
-  if(call == 1){
+  if(chunk_num == 1){
     strcat(filename, "-1");
   }
-  if(call == 2){
+  if(chunk_num == 2){
     strcat(filename, "-2");
+  }
+
+  message_header.Type = TYPE_REQUEST_CHUNK;
+  memcpy(message_header.params, file_name, strlen(file_name)+1);
+
+  if (send(sock, message_header, sizeof(struct MessageHeader), 0) != sizeof(struct MessageHeader)) {
+    Die("Mismatch in number of sent bytes\n");
   }
 
   remove(filename);
@@ -436,7 +425,19 @@ void receiveFile(char *filename, char *ipaddress, int call){
     exit(1);
   }
 
-  /* Receive the word back from the server */
+  //receive message header back
+  if((result = receive_message_header(sock, &response_message_header)) < 0) {
+    Die("failed to receive response header:\n");
+  }
+
+  //expect TYPE_POST_CHUNK as response
+  if(response_message_header.Type != TYPE_POST_CHUNK) {
+    Die("message response incorrect type");
+  }
+
+  memcpy((void *)&message_size, (void *)response_message_header.params, sizeof(int)); 
+
+  /* Receive the contents of the chunk*/
   fprintf(stdout, "Received: ");
   while (received < message_size) {
     int bytes = 0;
@@ -454,7 +455,9 @@ void receiveFile(char *filename, char *ipaddress, int call){
 }
 
 void fetchFile(struct arguments facts){
-  char filename[30];  //set up charbuffer for filename
+  char filename[MAX_PATH];  //set up charbuffer for filename
+  memset(filename, 0, MAX_PATH);
+
   strcpy(filename, facts.chunks[0]);  //assign filename from args to filename variable
   filename[strlen(filename)-2] = '\0';   //trim off the -1
   printf("Fetching %s...\nchunk 1/3...\n", filename);

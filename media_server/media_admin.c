@@ -105,6 +105,7 @@ void receive_chunk(int client_sock_fd, int out_fd, struct ChunkHeader **out_chun
 }
 */
 
+/*
 int receive_message_header(int sock_fd, struct MessageHeader *out_message_header) {
   int num_received = 0;
   int result = 0;
@@ -132,6 +133,7 @@ int receive_message_header(int sock_fd, struct MessageHeader *out_message_header
   //memcpy(out_message_header, &message_header, sizeof(struct MessageHeader));
   return 0;
 }
+*/
 
 int receive_chunk_header(int sock_fd, struct ChunkHeader *out_header) {
   int num_received = 0;
