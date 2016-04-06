@@ -1,5 +1,5 @@
 CC= gcc
-CC_FLAGS= -Wall -O2 -g
+CC_FLAGS= -Wall -O0 -g
 OUTPUT_DIR= ./bin
 COMMON_HEADERS = ../common/*.h
 

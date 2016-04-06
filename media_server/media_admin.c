@@ -24,7 +24,7 @@
 #define CHUNK_BUF_SIZE 10000
 
 //GLOBALS
-char *chunk_directory = "out";
+char *chunk_directory = "./out";
 int listen_port = 3000;
 
 void Die(char *str) {
@@ -195,9 +195,13 @@ int receive_chunk_contents(int sock_fd, int size, char *out_chunk_data)
   }
 }
 
-int store_chunk_contents(char file_name, char *chunk_buf, int size) {
+int store_chunk_contents(char *file_name, char *chunk_buf, int size) {
   FILE *fp = NULL;
   int result = 0;
+  char full_path[100];
+  char *full_path = "out/";
+  full
+
   //see if file for chunk already exists
   if(access(strcat(chunk_directory, file_name), F_OK) != -1) {
     if(remove(strcat(chunk_directory, file_name)) < 0) {
@@ -245,7 +249,6 @@ int main(int argc, char **argv) {
 
   char *chunk_buf = malloc(CHUNK_BUF_SIZE);
 
-  char *chunk_directory = NULL;
   FILE *chunk_fp = NULL;
   int chunk_file_size = 0;
   int message_size = 0;
@@ -314,7 +317,7 @@ int main(int argc, char **argv) {
         }
         */
 
-        if((result = receive_chunk_contents(server_sock_fd, message_size, chunk_buf)) < 0) {
+        if((result = receive_chunk_contents(client_sock_fd, message_size, chunk_buf)) < 0) {
           Die("failed to receive chunk contents");
         }
 
@@ -327,7 +330,7 @@ int main(int argc, char **argv) {
         }
         */
 
-        if((result = store_chunk_contents("poop", chunk_buf, message_size)) < 0) {
+        if((result = store_chunk_contents("poop\0", chunk_buf, message_size)) < 0) {
           Die("failed to store chunk");
         }
         break;

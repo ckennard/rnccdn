@@ -341,9 +341,6 @@ void connectAndSend(char *SERVER_ADDRESS, char *FILE_TO_SEND){
       exit(EXIT_FAILURE);
     }
 
-
-    exit(0);
-
     fprintf(stdout, "Server sent %d bytes for the size\n", (int)len);
 
     offset = 0;
@@ -362,10 +359,11 @@ void connectAndSend(char *SERVER_ADDRESS, char *FILE_TO_SEND){
 //
 //
 void sendChunks(struct arguments facts){
+    int ports[3] = {3000, 30001, 3002};
     char *address[3] = {"127.0.0.1", "127.0.0.1", "127.0.0.1"};
 
     int i;
-    for(i = 0 ; i < facts.num_of_chunks ; i++){
+    for(i = 0 ; i < 1/*facts.num_of_chunks*/; i++){
         char name_buf[30];
         sprintf(name_buf, "%s-%d", facts.input_file_name, i);
         connectAndSend(address[i], name_buf);
