@@ -21,10 +21,12 @@
 //dont have array of chunks. (IMPORTANT)
 //---Have only 1 chunk at a time write it out, then do the next one.
 
+#include "../common/chunk_header.h"
+#include "../common/message_header.h"
 #include "gf.h"
 #include "mt64.h"
 
-#define PORT_NUMBER 3001
+#define PORT_NUMBER 3000
 
 #define SPACE  600000
 //#define DATA_LENGTH   SPACE / sizeof(uint16_t)
@@ -328,13 +330,19 @@ void connectAndSend(char *SERVER_ADDRESS, char *FILE_TO_SEND){
     sprintf(file_size, "%d", (int)file_stat.st_size);
 
     //send message
-    int message[2] = {1, (int)file_stat.st_size};
-    len = send(server_socket, message, sizeof(message), 0);
+    struct MessageHeader message_header;
+    message_header.Type = TYPE_POST_CHUNK;
+    memcpy(message_header.params, &file_stat.st_size, sizeof(int));
+    len = send(server_socket, (void *)&message_header, sizeof(struct MessageHeader), 0);
+
     if (len < 0){
       fprintf(stderr, "Error on sending message --> %s", strerror(errno));
 
       exit(EXIT_FAILURE);
     }
+
+
+    exit(0);
 
     fprintf(stdout, "Server sent %d bytes for the size\n", (int)len);
 

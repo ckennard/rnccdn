@@ -1,21 +1,50 @@
-#include "common/chunk_header.h"
+#include "../common/chunk_header.h"
+#include "../common/message_header.h"
+
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
+
+#include <fcntl.h>
+
+#include <sys/types.h>
+#include <sys/stat.h>
+
+#include <errno.h>
+#include <unistd.h>
+#include <semaphore.h>
+
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
 
 #define RECV_BUF_SIZE 256
+#define MAX_PENDING 1
+
+#define CHUNK_BUF_SIZE 10000
 
 //GLOBALS
-char *chunk_directory = NULL;
-int listen_port = -1;
+char *chunk_directory = "out";
+int listen_port = 3000;
 
+void Die(char *str) {
+  char *errno_str = strerror(errno);
+  
+  printf(str);
+  printf("errno(%d):\n", errno);
+  printf(errno_str);
+
+  //free(errno_str);
+  exit(-1);
+}
 
 int parse_args(int argc, char **argv) {
   int c;
   opterr = 0;
-  while(( c = getopt(argc, argv, "pd:")) != -1){
+  while(( c = getopt(argc, argv, "p:d:")) != -1){
     switch(c){
       case 'p':
-        pvalue = atoi(optarg);
+        listen_port = atoi(optarg);
         break;
       case 'd':
         chunk_directory = malloc(strlen(optarg));
@@ -35,10 +64,11 @@ int parse_args(int argc, char **argv) {
 }
 
 
+/*
 //receive data from client socket, parse it out into a header and the payload (the actual chunk data)
 //TODO: check for data validity using header fields
 //TODO: instead of keeping entire chunk data in memory at once, periodically write parts of it to disk
-void receive_chunk(client_sock_fd, out_fd, ChunkHeader **out_chunk_header, char **out_chunk_payload) {
+void receive_chunk(int client_sock_fd, int out_fd, struct ChunkHeader **out_chunk_header, char **out_chunk_payload) {
   int result = 0;
   char recv_buf[256];
   ChunkHeader *chunk_header;
@@ -50,7 +80,7 @@ void receive_chunk(client_sock_fd, out_fd, ChunkHeader **out_chunk_header, char 
   unsigned int num_payload = 0;
   unsigned int num_header = 0;
 
-  while((result = recv(client_sock_fd, RECV_BUF_SIZE)) > 0) {
+  while((result = recv(client_sock_fd, receive_buf, RECV_BUF_SIZE)) > 0) {
 
     num_received += result;
     if(num_processed <= sizeof(ChunkHeader)) { //header is still being received
@@ -73,59 +103,58 @@ void receive_chunk(client_sock_fd, out_fd, ChunkHeader **out_chunk_header, char 
     num_processed = num_received;
   }
 }
+*/
 
 int receive_message_header(int sock_fd, struct MessageHeader *out_message_header) {
   int num_received = 0;
   int result = 0;
   struct MessageHeader message_header;
   
-  if((result = recv(sock_fd, *out_message_header, sizeof(struct MessageHeader))) < 0) {
+  if((result = recv(sock_fd, (void *)out_message_header, sizeof(struct MessageHeader), 0)) < 0) {
     return -1;
   }
   
   num_received += result;
   
   while(num_received < sizeof(struct MessageHeader)) {
-    result = recv(sock_fd, &(message_header + num_received), sizeof(struct MessageHeader) - num_received);
+    result = recv(sock_fd, (void *)(&message_header + num_received), sizeof(struct MessageHeader) - num_received, 0);
 
     if(result < 0) {
       return -1;
     } else if (result == 0) {
-      return 0;
+      break;
     } else if (result > 0) {
       num_received += result;
       continue;
     }
   }
 
-  memcpy(out_message_header, &message_header, sizeof(struct MessageHeader));
+  //memcpy(out_message_header, &message_header, sizeof(struct MessageHeader));
+  return 0;
 }
 
-int receive_chunk_header(int sock_fd, struct ChunkHeader **out_header) {
+int receive_chunk_header(int sock_fd, struct ChunkHeader *out_header) {
   int num_received = 0;
   int result = 0;
-  struct MessageHeader message_header;
+  struct ChunkHeader message_header;
   
-  if((result = recv(sock_fd, *out_message_header, sizeof(struct MessageHeader))) < 0) {
+  if((result = recv(sock_fd, (void *)out_header, sizeof(struct ChunkHeader), 0)) < 0) {
     return -1;
   }
   
   num_received += result;
   
-  while(num_received < sizeof(struct MessageHeader)) {
-    result = recv(sock_fd, &(message_header + num_received), sizeof(struct MessageHeader) - num_received);
-
-    //consider case where recv retrieves full transmission in first attempt
-    //consider case where recv retrieves ransmission in first attempt
+  while(num_received < sizeof(struct ChunkHeader)) {
+    result = recv(sock_fd, (void *)(&message_header + num_received), sizeof(struct ChunkHeader) - num_received, 0);
 
     if(result < 0) {
-      printf("recv error");
+      printf("recv error\n");
       return -1;
     } else if (result == 0) {
-      if(num_received == sizeof(struct MessageHeader)) {
+      if(num_received == sizeof(struct ChunkHeader)) {
         break;
       } else {
-        printf("full header not received");
+        printf("full header not received\n");
         return -1;
       }
     } else if (result > 0) {
@@ -134,22 +163,24 @@ int receive_chunk_header(int sock_fd, struct ChunkHeader **out_header) {
     }
   }
 
-  memcpy(out_message_header, &message_header, sizeof(struct MessageHeader));
+  memcpy(out_header, &message_header, sizeof(struct ChunkHeader));
+  return 0;
 }
 
-int receive_chunk_contents(int sock_fd, struct ChunkHeader *header, char *out_chunk_data) 
+int receive_chunk_contents(int sock_fd, int size, char *out_chunk_data) 
 {
   int result = 0;
   int num_received = 0;
+  int num_processed = 0;
 
   while(1) {
-    result = recv(sock_fd, out_chunk_data + num_received, header->file_size);
+    result = recv(sock_fd, (void *)(out_chunk_data + num_received), size, 0);
 
     if(result < 0) {
       printf("recv error");
       return -1;
     } else if (result == 0) {
-      if(num_received == header->chunk_size) {
+      if(num_received == size) {
         return 0; //received correct amt of data
       } else {
         printf("header chunk_size not same as size of data received.");
@@ -157,43 +188,46 @@ int receive_chunk_contents(int sock_fd, struct ChunkHeader *header, char *out_ch
       }
     } else {
       num_received += result;
-      if(num_received == header->chunk_size) {
+      if(num_received == size) {
         return 0;
       }
     }
   }
 }
 
-int store_chunk_contents(struct ChunkHeader header, char *chunk_buf, int buf_size) {
+int store_chunk_contents(char file_name, char *chunk_buf, int size) {
   FILE *fp = NULL;
+  int result = 0;
   //see if file for chunk already exists
-  if(access(strcat(chunk_directory, chunk_header->file_name)) != -1) {
-    if(remove(file_path) < 0) {
+  if(access(strcat(chunk_directory, file_name), F_OK) != -1) {
+    if(remove(strcat(chunk_directory, file_name)) < 0) {
       printf("failed to remove existing chunk file");
       return -1;
     }
   }
 
-  fp = fopen(file_path, "r+");
+  fp = fopen(strcat(chunk_directory, file_name), "r+");
 
-  if((result = fwrite(header, 1, sizeof(struct ChunkHeader), fp)) < sizeof(struct ChunkHeader)) {
+  /*
+  if((result = fwrite((void *)header, (size_t)1, sizeof(struct ChunkHeader), fp)) < sizeof(struct ChunkHeader)) {
     printf("error writing header to file");
     return -1;
   }
+  */
 
-  if((result = fwrite(chunk_buf, 1, buf_size, fp)) < buf_size) {
+  if((result = fwrite(chunk_buf, 1, size, fp)) < size) {
     printf("error writing chunk contents to file");
     return -1;
   }
   return 0;
 }
 
-int validate_chunk_header_pre_receive(const ChunkHeader * chunk_header) {
-
+int validate_chunk_header_pre_receive(const struct ChunkHeader * chunk_header) {
+  return 0;
 }
 
-int validate_chunk_header_post_receive(const ChunkHeader *chunk_header) {
-
+int validate_chunk_header_post_receive(const struct ChunkHeader *chunk_header) {
+  return 0;
 }
 
 int main(int argc, char **argv) {
@@ -203,16 +237,24 @@ int main(int argc, char **argv) {
   int server_sock_fd = -1;
   unsigned int clientlen = sizeof(client_sock);
 
+  char *local_host_ip = "127.0.0.1";
+  int listen_port = 3000;
+
   struct MessageHeader message_header;
   struct ChunkHeader chunk_header;
+
+  char *chunk_buf = malloc(CHUNK_BUF_SIZE);
 
   char *chunk_directory = NULL;
   FILE *chunk_fp = NULL;
   int chunk_file_size = 0;
+  int message_size = 0;
 
+  /*
   if((result = parse_args(argc, argv)) < 0) {
     Die("invalid arguments");
   }
+  */
 
   if((chunk_fp = fopen("...", "w+")) == 0) {
     Die("failed to open file to store chunk");
@@ -239,36 +281,53 @@ int main(int argc, char **argv) {
   }
 
   //listen for connections
-  while(TRUE) {
+  while(1) {
     //when a connection has been made, receive chunk and store it on disk
     if((client_sock_fd = accept(server_sock_fd, (struct sockaddr *) &client_sock, &clientlen)) < 0) {
       Die("accept client connection failed");
     }
 
     //receive and process a message
-    if((result = receive_message_header(&message_header)) < 0) {
+    if((result = receive_message_header(client_sock_fd, (void *)&message_header)) < 0) {
       Die("failed to receive message_header");
     }
 
+    printf("received message header\n");
+    fflush(stdout);
+
     switch(message_header.Type) {
       case TYPE_POST_CHUNK:
-        if((result = receive_chunk_header(&chunk_header)) < 0) {
+        memcpy(&message_size, (void *)message_header.params, sizeof(int));
+
+        /*
+        if((result = receive_chunk_header(client_sock_fd, (void *)&chunk_header)) < 0) {
           Die("failed to receive chunk header");
         }
 
-        if((result = validate_chunk_header_pre_receive(&chunk_header)) < 0) {
+        printf("received chunk header\n");
+        fflush(stdout);
+        */
+
+        /*
+        if((result = validate_chunk_header_pre_receive(server_sock_fd, &chunk_header)) < 0) {
           Die("invalid chunk header");
         }
+        */
 
-        if((result = receive_chunk_contents(&chunk_buf)) < 0) {
+        if((result = receive_chunk_contents(server_sock_fd, message_size, chunk_buf)) < 0) {
           Die("failed to receive chunk contents");
         }
 
+        printf("received chunk contents\n");
+        fflush(stdout);
+
+        /*
         if((result = validate_chunk_header_post_receive(&chunk_header)) < 0) {
           Die("invalid chunk header");
         }
+        */
 
-        if((result = store_chunk_contents(chunk_buf)) < 0) {
+        if((result = store_chunk_contents("poop", chunk_buf, message_size)) < 0) {
           Die("failed to store chunk");
         }
         break;
@@ -277,4 +336,9 @@ int main(int argc, char **argv) {
         break;
     }
   }
+
+  free(chunk_buf);
+  printf("Great Success!\n");
+  fflush(stdout);
+  return 0;
 }

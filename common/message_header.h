@@ -1,3 +1,6 @@
+#ifndef MESSAGE_HEADER_H
+#define MESSAGE_HEADER_H
+
 #define TYPE_POST_CHUNK 1
 //post chunk.  file size (unsigned int) goes in params
 
@@ -14,3 +17,5 @@ struct MessageHeader {
   int Type;
   char params[30];
 };
+
+#endif
