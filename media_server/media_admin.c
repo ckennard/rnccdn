@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-
+#include <dirent.h>
 #include <fcntl.h>
 
 #include <sys/types.h>
@@ -20,8 +20,8 @@
 
 #define RECV_BUF_SIZE 256
 #define MAX_PENDING 1
-
 #define CHUNK_BUF_SIZE 10000
+#define MAX_PATH 256
 
 //GLOBALS
 char *chunk_directory = "./out";
@@ -198,19 +198,36 @@ int receive_chunk_contents(int sock_fd, int size, char *out_chunk_data)
 int store_chunk_contents(char *file_name, char *chunk_buf, int size) {
   FILE *fp = NULL;
   int result = 0;
-  char full_path[100];
-  char *full_path = "out/";
-  full
+  char full_path[MAX_PATH];
+  memset(full_path, 0, MAX_PATH); //zero out the buffer
+
+  DIR *dir = NULL;
+  
+  strcat(full_path, chunk_directory);
+
+  //see if output directory for chunks already exists and create if it doesn't
+  dir = opendir(full_path);
+  if(dir) {
+    closedir(dir);
+  } else {
+    mkdir(full_path, 0700);
+  }
+
+  strcat(full_path, "/"); 
+  strcat(full_path, file_name);
 
   //see if file for chunk already exists
-  if(access(strcat(chunk_directory, file_name), F_OK) != -1) {
-    if(remove(strcat(chunk_directory, file_name)) < 0) {
+  if(access(full_path, F_OK) != -1) {
+    if(remove(full_path) < 0) {
       printf("failed to remove existing chunk file");
       return -1;
     }
   }
 
-  fp = fopen(strcat(chunk_directory, file_name), "r+");
+  fp = fopen(full_path, "w+");
+  if(!fp) {
+    Die("failed to open chunk output file");
+  }
 
   /*
   if((result = fwrite((void *)header, (size_t)1, sizeof(struct ChunkHeader), fp)) < sizeof(struct ChunkHeader)) {
@@ -240,6 +257,7 @@ int main(int argc, char **argv) {
   int client_sock_fd = -1;
   int server_sock_fd = -1;
   unsigned int clientlen = sizeof(client_sock);
+  int done = 0;
 
   char *local_host_ip = "127.0.0.1";
   int listen_port = 3000;
@@ -284,7 +302,7 @@ int main(int argc, char **argv) {
   }
 
   //listen for connections
-  while(1) {
+  while(!done) {
     //when a connection has been made, receive chunk and store it on disk
     if((client_sock_fd = accept(server_sock_fd, (struct sockaddr *) &client_sock, &clientlen)) < 0) {
       Die("accept client connection failed");
@@ -333,6 +351,8 @@ int main(int argc, char **argv) {
         if((result = store_chunk_contents("poop\0", chunk_buf, message_size)) < 0) {
           Die("failed to store chunk");
         }
+
+        done = 1;
         break;
       default:
 
