@@ -374,13 +374,13 @@ decodeFile(struct arguments facts){
 }
 
 void receiveFile(char *filename, char *ipaddress, int port, int chunk_num){
-  int sock;
+  int sock, result;
   struct sockaddr_in echoserver;
   char buffer[BUFFSIZE];
   //unsigned int echolen;
   int received = 0;
   int message_size = 0;
-  struct MessageHeader message_header;
+  struct MessageHeader message_header, response_message_header;
   memset(&message_header, 0, sizeof(struct MessageHeader));
 
   /* Create the TCP socket */
@@ -412,9 +412,9 @@ void receiveFile(char *filename, char *ipaddress, int port, int chunk_num){
   }
 
   message_header.Type = TYPE_REQUEST_CHUNK;
-  memcpy(message_header.params, file_name, strlen(file_name)+1);
+  memcpy(message_header.params, filename, strlen(filename)+1);
 
-  if (send(sock, message_header, sizeof(struct MessageHeader), 0) != sizeof(struct MessageHeader)) {
+  if (send(sock, (void *)&message_header, sizeof(struct MessageHeader), 0) != sizeof(struct MessageHeader)) {
     Die("Mismatch in number of sent bytes\n");
   }
 
@@ -458,14 +458,14 @@ void fetchFile(struct arguments facts){
   char filename[MAX_PATH];  //set up charbuffer for filename
   memset(filename, 0, MAX_PATH);
 
-  strcpy(filename, facts.chunks[0]);  //assign filename from args to filename variable
+  strcpy(filename, facts.chunks[0]);  //assign filename from args to filename v0ariable
   filename[strlen(filename)-2] = '\0';   //trim off the -1
   printf("Fetching %s...\nchunk 1/3...\n", filename);
-  receiveFile(filename, "127.0.0.1", 0);
+  receiveFile(filename, "127.0.0.1", 3000, 0);
   printf("Chunk 2/3...\n");
-  receiveFile(filename, "127.0.0.1", 1);
+  receiveFile(filename, "127.0.0.1", 3000, 1);
   printf("Chunk 3/3...\n");
-  receiveFile(filename, "127.0.0.1", 2);
+  receiveFile(filename, "127.0.0.1", 3000, 2);
 }
 
 //

@@ -39,6 +39,7 @@ void Die(char *str) {
 }
 
 int open_and_read_chunk(char *chunk_name, char **out_chunk_buf, int *out_chunk_size) {
+  int result = 0;
   char full_path[MAX_PATH];
   FILE *fp;
   memset(full_path, 0, MAX_PATH); //zero out the buffer
@@ -47,7 +48,7 @@ int open_and_read_chunk(char *chunk_name, char **out_chunk_buf, int *out_chunk_s
   strcat(full_path, "/"); 
   strcat(full_path, chunk_name);
 
-  if(!access(full_path, F_OK)) {
+  if((result = access(full_path, F_OK)) < 0) {
     printf("chunk with given name doesn't exist\n");
     return -1;
   }
@@ -66,13 +67,44 @@ int open_and_read_chunk(char *chunk_name, char **out_chunk_buf, int *out_chunk_s
   *out_chunk_buf = malloc(*out_chunk_size);
 
   fread(*out_chunk_buf, *out_chunk_size, 1, fp);
-  fclose(f);
+  fclose(fp);
 
   return 0;
 }
 
-int send_chunk_contents(int sock_fd, char *chunk_buf, int chunk_size) {
-  
+int send_chunk(int sock_fd, char *chunk_buf, int chunk_size) {
+  int result = 0;
+  int num_sent = 0;
+
+  struct MessageHeader chunk_post_header;
+  memset(&chunk_post_header, 0, sizeof(struct MessageHeader));
+
+  chunk_post_header.Type = TYPE_POST_CHUNK;
+  memcpy((void *)chunk_post_header.params, (void *)&chunk_size, sizeof(int));
+
+  //send the header 
+  if((result = send(sock_fd, (void *)&chunk_post_header, sizeof(struct MessageHeader), 0)) != sizeof(struct MessageHeader)) {
+    printf("failed to send chunk post header");
+    return -1;
+  }
+
+  while((result = send(sock_fd, (void *)chunk_buf, chunk_size - num_sent, 0)) > 0) {
+    num_sent += result;
+  }
+
+  if(result == 0) {
+    if(num_sent == chunk_size) {
+      return 0;
+    } else {
+      printf("full chunk not sent");
+      return -1;
+    }
+  } else if (result < 0) {
+    return -1;
+    printf("Error sending chunk\n");
+  }
+
+  return 0;
 }
 
 int main(int argc, char **argv) {
@@ -90,24 +122,12 @@ int main(int argc, char **argv) {
   int listen_port = 3000;
 
   struct MessageHeader message_header;
-  struct ChunkHeader chunk_header;
 
-  char *chunk_buf = malloc(CHUNK_BUF_SIZE);
+  char *chunk_buf = NULL;
+  int chunk_size;
+
   char chunk_name[MAX_PATH];
-
-  FILE *chunk_fp = NULL;
-  int chunk_file_size = 0;
-  int message_size = 0;
-
-  /*
-  if((result = parse_args(argc, argv)) < 0) {
-    Die("invalid arguments");
-  }
-  */
-
-  if((chunk_fp = fopen("...", "w+")) == 0) {
-    Die("failed to open file to store chunk");
-  };
+  memset(chunk_name, 0, MAX_PATH);
 
   memset(&server_sock, 0, sizeof(client_sock));
   server_sock.sin_family = AF_INET;
@@ -146,16 +166,17 @@ int main(int argc, char **argv) {
 
     switch(message_header.Type) {
       case TYPE_REQUEST_CHUNK:
-        strcpy(&chunk_name, message_header.params);
+        strcpy(chunk_name, message_header.params);
 
         //open the file, read into a buf and get the size
-        if((result = open_and_read_chunk(chunk_name, chunk_buf, &chunk_size)) < 0) {
+        if((result = open_and_read_chunk(chunk_name, &chunk_buf, &chunk_size)) < 0) {
           Die("failed to open and read chunk file");
         }
 
-        if((result = send_chunk_contents(client_sock_fd, chunk_buf, chunk_size)) < 0) {
+        if((result = send_chunk(client_sock_fd, chunk_buf, chunk_size)) < 0) {
           Die("failed to send chunk contents");
         }
         break;
     }
+  }
 }
