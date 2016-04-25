@@ -87,17 +87,30 @@ parse_args(int argc,
    */
   struct arguments facts;
 
+  //set name of file
+  char *name_buffer = malloc(75 * sizeof(char*));
+  strcpy(name_buffer, argv[1]);
+  facts.input_file_name = name_buffer;
+
+  //set chunk 1 name
   char * buffer1 = malloc(75 * sizeof(char*));
-  strcpy(buffer1, argv[1]);
+  //strcpy(buffer1, argv[1]);
+  sprintf(buffer1, "%s-%d", facts.input_file_name, 0);
   facts.chunks[0] = buffer1;
   
+  //set chunk 2 name
   char * buffer2 = malloc(75 * sizeof(char*));
-  strcpy(buffer2, argv[2]);
+  //strcpy(buffer2, argv[2]);
+  sprintf(buffer2, "%s-%d", facts.input_file_name, 1);
   facts.chunks[1] = buffer2;
-  
+
+  //set chunk 3 name  
   char * buffer3 = malloc(75 * sizeof(char*));
-  strcpy(buffer3, argv[3]);
+  //strcpy(buffer3, argv[3]);
+  sprintf(buffer3, "%s-%d", facts.input_file_name, 2);
   facts.chunks[2] = buffer3;
+
+  //printf("%s\n%s\n%s\n%s\n", facts.input_file_name, facts.chunks[0], facts.chunks[1], facts.chunks[2]);
 
   return facts;
 } // parse_args()...
@@ -373,7 +386,7 @@ decodeFile(struct arguments facts){
   fclose(ff);
 }
 
-void receiveFile(char *filename, char *ipaddress, int port, int chunk_num){
+void receiveFile(char *filename, char *chunk_name, char *ipaddress, int port, int chunk_num){
   int sock, result;
   struct sockaddr_in echoserver;
   char buffer[BUFFSIZE];
@@ -400,17 +413,7 @@ void receiveFile(char *filename, char *ipaddress, int port, int chunk_num){
   } else {
     printf("Connected to server\n");
   }
-
-  if(chunk_num == 0){
-    strcat(filename, "-0");
-  }
-  if(chunk_num == 1){
-    strcat(filename, "-1");
-  }
-  if(chunk_num == 2){
-    strcat(filename, "-2");
-  }
-
+  
   message_header.Type = TYPE_REQUEST_CHUNK;
   memcpy(message_header.params, filename, strlen(filename)+1);
 
@@ -418,8 +421,8 @@ void receiveFile(char *filename, char *ipaddress, int port, int chunk_num){
     Die("Mismatch in number of sent bytes\n");
   }
 
-  remove(filename);
-  FILE *fp = fopen(filename, "w");
+  remove(chunk_name);
+  FILE *fp = fopen(chunk_name, "w");
   if (fp == NULL){
     printf("Error opening/creating file.\n");
     exit(1);
@@ -454,18 +457,27 @@ void receiveFile(char *filename, char *ipaddress, int port, int chunk_num){
   close(sock);
 }
 
+
 void fetchFile(struct arguments facts){
   char filename[MAX_PATH];  //set up charbuffer for filename
   memset(filename, 0, MAX_PATH);
 
-  strcpy(filename, facts.chunks[0]);  //assign filename from args to filename v0ariable
-  filename[strlen(filename)-2] = '\0';   //trim off the -1
+  //strcpy(filename, facts.chunks[0]);  //assign filename from args to filename v0ariable
+  //filename[strlen(filename)-2] = '\0';   //trim off the -1
+
   printf("Fetching %s...\nchunk 1/3...\n", filename);
-  receiveFile(filename, "127.0.0.1", 3000, 0);
+  //receiveFile(filename, "127.0.0.1", 3000, 0);
+  receiveFile(facts.input_file_name, facts.chunks[0], "127.0.0.1", 3000, 0);
+
+  return;
+
   printf("Chunk 2/3...\n");
-  receiveFile(filename, "127.0.0.1", 3000, 1);
+  //receiveFile(filename, "127.0.0.1", 3000, 1);
+  receiveFile(facts.input_file_name, facts.chunks[1], "127.0.0.1", 3000, 1);
+
   printf("Chunk 3/3...\n");
-  receiveFile(filename, "127.0.0.1", 3000, 2);
+  //receiveFile(filename, "127.0.0.1", 3000, 2);
+  receiveFile(facts.input_file_name, facts.chunks[2], "127.0.0.1", 3000, 2);
 }
 
 //
@@ -475,17 +487,16 @@ int main(int argc, char **argv){
   //struct that holds the passed arguments
   struct arguments facts;
   //input format
-  //2 argument
-  //--file to read
-  //--number of chunks to create
+  //1 argument
+  //--file to fetch and decode
   //check input
-  if(argc == 4){
+  if(argc == 2){
     //3 arguments
     facts = parse_args(argc, argv);
   } else {
     //too many arguments
     printf("Invalid input. Valid arguments:\n");
-    printf("Chunk names to decode.\n");
+    printf("File name to fetch and decode.\n");
     return 0;
   }
   
@@ -494,6 +505,8 @@ int main(int argc, char **argv){
   
   //fetches files from media server
   fetchFile(facts);
+
+  return 0;
 
   //gets file and encodes
   decodeFile(facts);
