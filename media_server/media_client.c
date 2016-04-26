@@ -1,7 +1,3 @@
-#define LISTEN_PORT 3001
-#include "../common/chunk_header.h"
-#include "../common/message_header.h"
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -19,6 +15,10 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 
+#include "../common/chunk_header.h"
+#include "../common/message_header.h"
+
+#define LISTEN_PORT 3001
 #define RECV_BUF_SIZE 256
 #define MAX_PENDING 1
 #define CHUNK_BUF_SIZE 10000

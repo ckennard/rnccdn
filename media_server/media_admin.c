@@ -1,6 +1,3 @@
-#include "../common/chunk_header.h"
-#include "../common/message_header.h"
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -17,6 +14,9 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
+
+#include "../common/chunk_header.h"
+#include "../common/message_header.h"
 
 #define RECV_BUF_SIZE 256
 #define MAX_PENDING 1
