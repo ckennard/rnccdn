@@ -193,22 +193,24 @@ encodeFile(struct arguments facts){
 		        clist[i] = fopen(namebuf , "w"); //w for write, may need append later
 
 		        //write out file name with appended id, file size, coefficients
-		        fwrite(namebuf, sizeof(char), 30, clist[i]);
+		        //fwrite(namebuf, sizeof(char), 30, clist[i]);
 
-		        long chunk_size_w_header = (((DATA_LENGTH + whitespace)/3)*2) + (sizeof(char)*30) + sizeof(long) + (sizeof(uint16_t)*3) + (sizeof(int)*2);
-		        long *fs = &chunk_size_w_header;
-		        fwrite(fs, sizeof(long), 1, clist[i]);
-
+		        //long chunk_size_w_header = (((DATA_LENGTH + whitespace)/3)*2) + (sizeof(char)*30) + sizeof(long) + (sizeof(uint16_t)*3) + (sizeof(int)*2);
+                uint32_t chunk_size_w_header = (((DATA_LENGTH + whitespace)/3)*2) + (sizeof(uint16_t)*3) + sizeof(uint32_t);
+		        
 		        fwrite(output[i].coef, 2, 3, clist[i]);
 
-		        printf("file size = %ld\n", chunk_size_w_header);
+                uint32_t *fs = &chunk_size_w_header;
+                fwrite(fs, sizeof(uint32_t), 1, clist[i]);
+
+		        printf("file size = %" PRIu32 "\n", chunk_size_w_header);
         		printf("chunk_size = %ld\n", ((DATA_LENGTH + whitespace)/3)*2);
 
-		        int *p = &whitespace;
-		        fwrite(p, sizeof(int), 1, clist[i]);
+		        //int *p = &whitespace;
+		        //fwrite(p, sizeof(int), 1, clist[i]);
 
-		        int *b = &oddBytes;
-		        fwrite(b, sizeof(int), 1, clist[i]);
+		        //int *b = &oddBytes;
+		        //fwrite(b, sizeof(int), 1, clist[i]);
 		    }
 
 		    //printf("Before while loop\n");
