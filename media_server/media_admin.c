@@ -219,10 +219,11 @@ int store_chunk_contents(char *file_name, char *chunk_buf, int size) {
   strcat(full_path, file_name);
 
   //see if file for chunk already exists
-  if(access(full_path, F_OK) != -1) {
-    if(remove(full_path) < 0) {
-      printf("failed to remove existing chunk file");
-      return -1;
+  while(1) {
+    if(access(full_path, F_OK) != -1) {
+      strcat(full_path, "1");
+    } else {
+      break; //file doesn't exist already on disk... we all good!
     }
   }
 
@@ -267,7 +268,7 @@ int main(int argc, char **argv) {
   struct MessageHeader message_header;
   struct ChunkHeader chunk_header;
 
-  char *chunk_buf = malloc(CHUNK_BUF_SIZE);
+  char *chunk_buf = NULL;
 
   FILE *chunk_fp = NULL;
   int chunk_file_size = 0;
@@ -315,6 +316,8 @@ int main(int argc, char **argv) {
       Die("failed to receive message_header");
     }
 
+
+
     printf("received message header\n");
     fflush(stdout);
 
@@ -330,7 +333,7 @@ int main(int argc, char **argv) {
         printf("received chunk header\n");
         fflush(stdout);
         */
-
+        chunk_buf = malloc(message_size);
         /*
         if((result = validate_chunk_header_pre_receive(server_sock_fd, &chunk_header)) < 0) {
           Die("invalid chunk header");
@@ -344,17 +347,11 @@ int main(int argc, char **argv) {
         printf("received chunk contents\n");
         fflush(stdout);
 
-        /*
-        if((result = validate_chunk_header_post_receive(&chunk_header)) < 0) {
-          Die("invalid chunk header");
-        }
-        */
-
-        if((result = store_chunk_contents("poop\0", chunk_buf, message_size)) < 0) {
+        if((result = store_chunk_contents("encoded_chunk\0", chunk_buf, message_size)) < 0) {
           Die("failed to store chunk");
         }
 
-        done = 1;
+        //done = 1;
         break;
       default:
 
