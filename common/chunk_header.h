@@ -11,6 +11,7 @@ struct ChunkHeader {
   int oddByte;
   */
   uint16_t coef[3];
+  uint16_t padding;
   uint32_t f_size;
 };
 

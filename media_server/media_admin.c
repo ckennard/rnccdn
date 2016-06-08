@@ -25,7 +25,7 @@
 
 //GLOBALS
 char *chunk_directory = "./out";
-int listen_port = 3000;
+int listen_port = 3001;
 
 void Die(char *str) {
   char *errno_str = strerror(errno);
@@ -263,7 +263,7 @@ int main(int argc, char **argv) {
   int done = 0;
 
   char *local_host_ip = "127.0.0.1";
-  int listen_port = 3000;
+  int listen_port = 3001;
 
   struct MessageHeader message_header;
   struct ChunkHeader chunk_header;

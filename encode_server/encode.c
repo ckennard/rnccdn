@@ -26,7 +26,7 @@
 #include "gf.h"
 #include "mt64.h"
 
-#define PORT_NUMBER 3000
+#define PORT_NUMBER 3001
 
 #define BUF_SIZE 8192
 
@@ -148,7 +148,7 @@ void encodeMath(struct chunk *output, uint16_t *input, long SIZE, struct argumen
 }
 
 void encodeFile(struct arguments facts){
-  long file_size_bytes = 0;
+  uint32_t file_size_bytes = 0;
   long DATA_LENGTH = 0; //16bit elements
   long REMAINDER = 0;
 
@@ -173,7 +173,7 @@ void encodeFile(struct arguments facts){
     if (fseek(fp, 0, SEEK_END) == 0) {
       //Get the size of the file. Gets in single bytes
       file_size_bytes = ftell(fp);
-      if (file_size_bytes == -1) { /* Error */ }
+      if (file_size_bytes == -1)
         Die("Some error");
       if( file_size_bytes % 2 == 0){
         DATA_LENGTH = file_size_bytes/2;
@@ -226,8 +226,7 @@ void encodeFile(struct arguments facts){
       uint16_t none = 0;
       fwrite(output[i].coef, 2, 1, clist[i]);
 
-      uint32_t *fs = &chunk_size_w_header;
-      fwrite(&fs, sizeof(uint32_t), 1, clist[i]);
+      fwrite(&file_size_bytes, sizeof(uint32_t), 1, clist[i]);
 
       printf("file size = %" PRIu32 "\n", chunk_size_w_header);
       printf("chunk_size = %ld\n", ((DATA_LENGTH + whitespace)/3)*2);
